@@ -29,6 +29,20 @@ pub fn handle_msg(mut msg: Msg, json: bool) -> anyhow::Result<()> {
         }
     }
 
+    // Parse the --rule KDL string into a SpawnRule for spawn actions.
+    if let Msg::Action {
+        action: Action::Spawn { rule, rule_str, .. } | Action::SpawnSh { rule, rule_str, .. },
+    } = &mut msg
+    {
+        if let Some(rule_str) = rule_str.take() {
+            *rule = Some(
+                niri_config::window_rule::parse_spawn_rule(&rule_str)
+                    .map_err(|e| anyhow!("{e}"))
+                    .context("error parsing --rule")?,
+            );
+        }
+    }
+
     let request = match &msg {
         Msg::Version => Request::Version,
         Msg::Outputs => Request::Outputs,

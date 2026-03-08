@@ -134,6 +134,15 @@ pub enum PresetSize {
     Fixed(#[knuffel(argument)] i32),
 }
 
+impl From<niri_ipc::PresetSize> for PresetSize {
+    fn from(value: niri_ipc::PresetSize) -> Self {
+        match value {
+            niri_ipc::PresetSize::Proportion(v) => Self::Proportion(v),
+            niri_ipc::PresetSize::Fixed(v) => Self::Fixed(v),
+        }
+    }
+}
+
 impl From<PresetSize> for SizeChange {
     fn from(value: PresetSize) -> Self {
         match value {
