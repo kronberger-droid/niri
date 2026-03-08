@@ -106,6 +106,16 @@ pub struct FloatingPosition {
     pub relative_to: RelativeTo,
 }
 
+impl From<niri_ipc::FloatingPosition> for FloatingPosition {
+    fn from(niri_ipc::FloatingPosition { x, y, relative_to }: niri_ipc::FloatingPosition) -> Self {
+        Self {
+            x: FloatOrInt(x),
+            y: FloatOrInt(y),
+            relative_to: relative_to.into(),
+        }
+    }
+}
+
 #[derive(knuffel::DecodeScalar, Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum RelativeTo {
     #[default]
@@ -117,4 +127,104 @@ pub enum RelativeTo {
     Bottom,
     Left,
     Right,
+}
+
+impl From<niri_ipc::RelativeTo> for RelativeTo {
+    fn from(value: niri_ipc::RelativeTo) -> Self {
+        match value {
+            niri_ipc::RelativeTo::TopLeft => Self::TopLeft,
+            niri_ipc::RelativeTo::TopRight => Self::TopRight,
+            niri_ipc::RelativeTo::BottomLeft => Self::BottomLeft,
+            niri_ipc::RelativeTo::BottomRight => Self::BottomRight,
+            niri_ipc::RelativeTo::Top => Self::Top,
+            niri_ipc::RelativeTo::Bottom => Self::Bottom,
+            niri_ipc::RelativeTo::Left => Self::Left,
+            niri_ipc::RelativeTo::Right => Self::Right,
+        }
+    }
+}
+
+impl From<RelativeTo> for niri_ipc::RelativeTo {
+    fn from(value: RelativeTo) -> Self {
+        match value {
+            RelativeTo::TopLeft => Self::TopLeft,
+            RelativeTo::TopRight => Self::TopRight,
+            RelativeTo::BottomLeft => Self::BottomLeft,
+            RelativeTo::BottomRight => Self::BottomRight,
+            RelativeTo::Top => Self::Top,
+            RelativeTo::Bottom => Self::Bottom,
+            RelativeTo::Left => Self::Left,
+            RelativeTo::Right => Self::Right,
+        }
+    }
+}
+
+impl From<FloatingPosition> for niri_ipc::FloatingPosition {
+    fn from(FloatingPosition { x, y, relative_to }: FloatingPosition) -> Self {
+        Self {
+            x: x.0,
+            y: y.0,
+            relative_to: relative_to.into(),
+        }
+    }
+}
+
+impl From<crate::PresetSize> for niri_ipc::PresetSize {
+    fn from(value: crate::PresetSize) -> Self {
+        match value {
+            crate::PresetSize::Proportion(v) => Self::Proportion(v),
+            crate::PresetSize::Fixed(v) => Self::Fixed(v),
+        }
+    }
+}
+
+impl From<&WindowRule> for niri_ipc::SpawnRule {
+    fn from(rule: &WindowRule) -> Self {
+        Self {
+            open_floating: rule.open_floating,
+            open_maximized: rule.open_maximized,
+            open_maximized_to_edges: rule.open_maximized_to_edges,
+            open_fullscreen: rule.open_fullscreen,
+            open_focused: rule.open_focused,
+            open_on_output: rule.open_on_output.clone(),
+            open_on_workspace: rule.open_on_workspace.clone(),
+            default_column_display: rule.default_column_display,
+            default_column_width: rule
+                .default_column_width
+                .as_ref()
+                .map(|dps| dps.0.map(niri_ipc::PresetSize::from)),
+            default_window_height: rule
+                .default_window_height
+                .as_ref()
+                .map(|dps| dps.0.map(niri_ipc::PresetSize::from)),
+            default_floating_position: rule
+                .default_floating_position
+                .map(niri_ipc::FloatingPosition::from),
+        }
+    }
+}
+
+/// Parse a KDL rule string (e.g. from `--rule`) into a `SpawnRule`.
+///
+/// The input uses the same syntax as window rule children in the config file,
+/// with semicolons as separators:
+///
+/// ```text
+/// open-floating true; default-floating-position x=100 y=100
+/// ```
+pub fn parse_spawn_rule(rule_str: &str) -> miette::Result<niri_ipc::SpawnRule> {
+    // Wrap the rule string as children of a window-rule node.
+    // Semicolons are valid KDL node terminators, but newlines also work.
+    let kdl = format!("window-rule {{\n{}\n}}", rule_str.replace(';', "\n"));
+
+    // Parse as a single-element document containing one WindowRule.
+    #[derive(knuffel::Decode)]
+    struct Wrapper {
+        #[knuffel(child)]
+        window_rule: WindowRule,
+    }
+
+    let wrapper: Wrapper = knuffel::parse("--rule", &kdl).map_err(|e| miette::miette!("{e}"))?;
+
+    Ok(niri_ipc::SpawnRule::from(&wrapper.window_rule))
 }
