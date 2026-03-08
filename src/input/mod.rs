@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use calloop::timer::{TimeoutAction, Timer};
 use input::event::gesture::GestureEventCoordinates as _;
@@ -739,12 +739,22 @@ impl State {
             Action::DebugToggleDamage => {
                 self.niri.debug_toggle_damage();
             }
-            Action::Spawn(command) => {
+            Action::Spawn(command, rule) => {
                 let (token, _) = self.niri.activation_state.create_external_token(None);
+                if let Some(rule) = rule {
+                    self.niri
+                        .pending_spawn_rules
+                        .insert(token.as_str().to_owned(), (Instant::now(), rule));
+                }
                 spawn(command, Some(token.clone()));
             }
-            Action::SpawnSh(command) => {
+            Action::SpawnSh(command, rule) => {
                 let (token, _) = self.niri.activation_state.create_external_token(None);
+                if let Some(rule) = rule {
+                    self.niri
+                        .pending_spawn_rules
+                        .insert(token.as_str().to_owned(), (Instant::now(), rule));
+                }
                 spawn_sh(command, Some(token.clone()));
             }
             Action::DoScreenTransition(delay_ms) => {
@@ -4674,7 +4684,7 @@ fn find_configured_switch_action(
     };
     switch_action
         .as_ref()
-        .map(|switch_action| Action::Spawn(switch_action.spawn.clone()))
+        .map(|switch_action| Action::Spawn(switch_action.spawn.clone(), None))
 }
 
 fn modifiers_from_state(mods: ModifiersState) -> Modifiers {

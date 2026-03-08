@@ -2002,6 +2002,7 @@ mod tests {
                             [
                                 "alacritty",
                             ],
+                            None,
                         ),
                         repeat: true,
                         cooldown: None,
@@ -2214,6 +2215,7 @@ mod tests {
                         },
                         action: SpawnSh(
                             "pkill orca || exec orca",
+                            None,
                         ),
                         repeat: true,
                         cooldown: None,
