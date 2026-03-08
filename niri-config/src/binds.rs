@@ -108,8 +108,14 @@ pub enum Action {
     ToggleDebugTint,
     DebugToggleOpaqueRegions,
     DebugToggleDamage,
-    Spawn(#[knuffel(arguments)] Vec<String>),
-    SpawnSh(#[knuffel(argument)] String),
+    Spawn(
+        #[knuffel(arguments)] Vec<String>,
+        #[knuffel(default)] Option<niri_ipc::SpawnRule>,
+    ),
+    SpawnSh(
+        #[knuffel(argument)] String,
+        #[knuffel(default)] Option<niri_ipc::SpawnRule>,
+    ),
     DoScreenTransition(#[knuffel(property(name = "delay-ms"))] Option<u16>),
     #[knuffel(skip)]
     ConfirmScreenshot {
@@ -397,8 +403,8 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::Quit { skip_confirmation } => Self::Quit(skip_confirmation),
             niri_ipc::Action::PowerOffMonitors {} => Self::PowerOffMonitors,
             niri_ipc::Action::PowerOnMonitors {} => Self::PowerOnMonitors,
-            niri_ipc::Action::Spawn { command } => Self::Spawn(command),
-            niri_ipc::Action::SpawnSh { command } => Self::SpawnSh(command),
+            niri_ipc::Action::Spawn { command, rule, .. } => Self::Spawn(command, rule),
+            niri_ipc::Action::SpawnSh { command, rule, .. } => Self::SpawnSh(command, rule),
             niri_ipc::Action::DoScreenTransition { delay_ms } => Self::DoScreenTransition(delay_ms),
             niri_ipc::Action::Screenshot { show_pointer, path } => {
                 Self::Screenshot(show_pointer, path)
@@ -893,7 +899,7 @@ where
         // even if their contents are not valid.
         let dummy = Self {
             key,
-            action: Action::Spawn(vec![]),
+            action: Action::Spawn(vec![], None),
             repeat: true,
             cooldown: None,
             allow_when_locked: false,
@@ -911,7 +917,7 @@ where
             }
             match Action::decode_node(child, ctx) {
                 Ok(action) => {
-                    if !matches!(action, Action::Spawn(_) | Action::SpawnSh(_)) {
+                    if !matches!(action, Action::Spawn(..) | Action::SpawnSh(..)) {
                         if let Some(node) = allow_when_locked_node {
                             ctx.emit_error(DecodeError::unexpected(
                                 node,
