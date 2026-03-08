@@ -369,6 +369,43 @@ impl ResolvedWindowRules {
         // We open fixed-height windows as floating.
         min_size.h > 0 && min_size.h == max_size.h
     }
+
+    /// Overlay a one-shot spawn rule, overriding any matching fields.
+    pub fn apply_spawn_rule(&mut self, rule: &niri_ipc::SpawnRule) {
+        if let Some(v) = rule.open_floating {
+            self.open_floating = Some(v);
+        }
+        if let Some(v) = rule.open_maximized {
+            self.open_maximized = Some(v);
+        }
+        if let Some(v) = rule.open_maximized_to_edges {
+            self.open_maximized_to_edges = Some(v);
+        }
+        if let Some(v) = rule.open_fullscreen {
+            self.open_fullscreen = Some(v);
+        }
+        if let Some(v) = rule.open_focused {
+            self.open_focused = Some(v);
+        }
+        if let Some(ref v) = rule.open_on_output {
+            self.open_on_output = Some(v.clone());
+        }
+        if let Some(ref v) = rule.open_on_workspace {
+            self.open_on_workspace = Some(v.clone());
+        }
+        if let Some(v) = rule.default_column_display {
+            self.default_column_display = Some(v);
+        }
+        if let Some(ref v) = rule.default_column_width {
+            self.default_width = Some(v.map(PresetSize::from));
+        }
+        if let Some(ref v) = rule.default_window_height {
+            self.default_height = Some(v.map(PresetSize::from));
+        }
+        if let Some(ref v) = rule.default_floating_position {
+            self.default_floating_position = Some(FloatingPosition::from(*v));
+        }
+    }
 }
 
 fn window_matches(window: WindowRef, role: &XdgToplevelSurfaceRoleAttributes, m: &Match) -> bool {

@@ -85,6 +85,7 @@ impl CompositorHandler for State {
                         window,
                         state,
                         activation_token_data,
+                        spawn_rule,
                     } = entry.remove();
 
                     window.on_commit();
@@ -144,6 +145,12 @@ impl CompositorHandler for State {
                             false,
                         )
                     };
+
+                    // Apply one-shot spawn rule if present (overrides config rules).
+                    let mut rules = rules;
+                    if let Some(spawn_rule) = &spawn_rule {
+                        rules.apply_spawn_rule(spawn_rule);
+                    }
 
                     // The GTK about dialog sets min/max size after the initial configure but
                     // before mapping, so we need to compute open_floating at the last possible
