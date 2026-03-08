@@ -204,12 +204,26 @@ pub enum Action {
     PowerOnMonitors {},
     /// Spawn a command.
     Spawn {
+        /// One-shot window rule applied to the first window opened by the spawned process.
+        #[cfg_attr(feature = "clap", arg(skip))]
+        rule: Option<SpawnRule>,
+        /// Window rule as a KDL string, parsed client-side into `rule`.
+        #[serde(skip)]
+        #[cfg_attr(feature = "clap", arg(long = "rule", required = false))]
+        rule_str: Option<String>,
         /// Command to spawn.
         #[cfg_attr(feature = "clap", arg(last = true, required = true))]
         command: Vec<String>,
     },
     /// Spawn a command through the shell.
     SpawnSh {
+        /// One-shot window rule applied to the first window opened by the spawned process.
+        #[cfg_attr(feature = "clap", arg(skip))]
+        rule: Option<SpawnRule>,
+        /// Window rule as a KDL string, parsed client-side into `rule`.
+        #[serde(skip)]
+        #[cfg_attr(feature = "clap", arg(long = "rule", required = false))]
+        rule_str: Option<String>,
         /// Command to run.
         #[cfg_attr(feature = "clap", arg(last = true, required = true))]
         command: String,
@@ -1107,6 +1121,79 @@ pub enum ModeToSet {
     Automatic,
     /// Specific mode.
     Specific(ConfiguredMode),
+}
+
+/// Size as a proportion of the screen or a fixed pixel value.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum PresetSize {
+    /// Proportion of the screen, e.g. 0.5 for 50%.
+    Proportion(f64),
+    /// Fixed size in logical pixels.
+    Fixed(i32),
+}
+
+/// Position anchor for floating windows.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub enum RelativeTo {
+    /// Top-left corner of the output.
+    #[default]
+    TopLeft,
+    /// Top-right corner of the output.
+    TopRight,
+    /// Bottom-left corner of the output.
+    BottomLeft,
+    /// Bottom-right corner of the output.
+    BottomRight,
+    /// Top edge center of the output.
+    Top,
+    /// Bottom edge center of the output.
+    Bottom,
+    /// Left edge center of the output.
+    Left,
+    /// Right edge center of the output.
+    Right,
+}
+
+/// Position for a floating window on the output.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub struct FloatingPosition {
+    /// Logical X position.
+    pub x: f64,
+    /// Logical Y position.
+    pub y: f64,
+    /// Anchor point on the output that the position is relative to.
+    pub relative_to: RelativeTo,
+}
+
+/// One-shot window rule applied to the first window created by a spawned process.
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub struct SpawnRule {
+    /// Open the window as floating.
+    pub open_floating: Option<bool>,
+    /// Open the window maximized.
+    pub open_maximized: Option<bool>,
+    /// Open the window maximized to screen edges.
+    pub open_maximized_to_edges: Option<bool>,
+    /// Open the window fullscreen.
+    pub open_fullscreen: Option<bool>,
+    /// Open the window focused.
+    pub open_focused: Option<bool>,
+    /// Open the window on a specific output.
+    pub open_on_output: Option<String>,
+    /// Open the window on a specific workspace.
+    pub open_on_workspace: Option<String>,
+    /// Default column display mode for the window.
+    pub default_column_display: Option<ColumnDisplay>,
+    /// Default column width. Outer `None` means unset, inner `None` resets to no default.
+    pub default_column_width: Option<Option<PresetSize>>,
+    /// Default window height. Outer `None` means unset, inner `None` resets to no default.
+    pub default_window_height: Option<Option<PresetSize>>,
+    /// Default position for the window when floating.
+    pub default_floating_position: Option<FloatingPosition>,
 }
 
 /// Output mode as set in the config file.

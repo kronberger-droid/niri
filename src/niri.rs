@@ -304,6 +304,7 @@ pub struct Niri {
     pub security_context_state: SecurityContextState,
     pub gamma_control_manager_state: GammaControlManagerState,
     pub activation_state: XdgActivationState,
+    pub pending_spawn_rules: HashMap<String, (Instant, niri_ipc::SpawnRule)>,
     pub mutter_x11_interop_state: MutterX11InteropManagerState,
 
     // This will not work as is outside of tests, so it is gated with #[cfg(test)] for now. In
@@ -2295,6 +2296,10 @@ impl Niri {
                     state.niri.activation_state.retain_tokens(|_, token_data| {
                         token_data.timestamp.elapsed() < XDG_ACTIVATION_TOKEN_TIMEOUT
                     });
+                    state
+                        .niri
+                        .pending_spawn_rules
+                        .retain(|_, (created, _)| created.elapsed() < XDG_ACTIVATION_TOKEN_TIMEOUT);
                     TimeoutAction::ToDuration(XDG_ACTIVATION_TOKEN_TIMEOUT)
                 },
             )
@@ -2494,6 +2499,7 @@ impl Niri {
             security_context_state,
             gamma_control_manager_state,
             activation_state,
+            pending_spawn_rules: HashMap::new(),
             mutter_x11_interop_state,
             #[cfg(test)]
             single_pixel_buffer_state,
