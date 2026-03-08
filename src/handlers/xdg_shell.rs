@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::fs;
 
 use calloop::Interest;
 use niri_config::PresetSize;
@@ -45,7 +46,8 @@ use crate::layout::ActivateWindow;
 use crate::niri::{CastTarget, PopupGrabState, State};
 use crate::utils::transaction::Transaction;
 use crate::utils::{
-    get_monotonic_time, output_matches_name, send_scale_transform, update_tiled_state, ResizeEdge,
+    get_credentials_for_surface, get_monotonic_time, output_matches_name, send_scale_transform,
+    update_tiled_state, ResizeEdge,
 };
 use crate::window::{InitialConfigureState, ResolvedWindowRules, Unmapped, WindowRef};
 
@@ -56,7 +58,18 @@ impl XdgShellHandler for State {
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         let wl_surface = surface.wl_surface().clone();
-        let unmapped = Unmapped::new(Window::new_wayland_window(surface));
+        let mut unmapped = Unmapped::new(Window::new_wayland_window(surface));
+
+        // Try to match a pending spawn rule by reading the client's
+        // XDG_ACTIVATION_TOKEN from /proc/<pid>/environ.
+        if !self.niri.pending_spawn_rules.is_empty() {
+            if let Some(token) = activation_token_for_surface(&wl_surface) {
+                if let Some((_, rule)) = self.niri.pending_spawn_rules.remove(&token) {
+                    unmapped.spawn_rule = Some(rule);
+                }
+            }
+        }
+
         let existing = self.niri.unmapped_windows.insert(wl_surface, unmapped);
         assert!(existing.is_none());
     }
@@ -1035,11 +1048,15 @@ impl State {
         };
 
         let config = self.niri.config.borrow();
-        let rules = ResolvedWindowRules::compute(
+        let mut rules = ResolvedWindowRules::compute(
             &config.window_rules,
             WindowRef::Unmapped(unmapped),
             self.niri.is_at_startup,
         );
+
+        if let Some(spawn_rule) = &unmapped.spawn_rule {
+            rules.apply_spawn_rule(spawn_rule);
+        }
 
         let Unmapped { window, state, .. } = unmapped;
 
@@ -1560,5 +1577,25 @@ pub fn add_mapped_toplevel_pre_commit_hook(toplevel: &ToplevelSurface) -> HookId
             // The toplevel remains mapped; clear any stored unmap snapshot.
             state.niri.layout.clear_unmap_snapshot(&window);
         }
+    })
+}
+
+/// Read the client process's `XDG_ACTIVATION_TOKEN` from `/proc/<pid>/environ`.
+///
+/// This lets us match a newly-created toplevel back to the spawn action that
+/// launched it, even when the client never calls `xdg_activation_v1.activate()`.
+///
+/// This is Linux-specific (`/proc` is required), but niri only targets Linux.
+/// We use `/proc` rather than PID-based matching because environment variables
+/// propagate through any number of forks/execs, so this works even when the
+/// spawned process is a wrapper script that launches the actual Wayland client.
+fn activation_token_for_surface(surface: &WlSurface) -> Option<String> {
+    let creds = get_credentials_for_surface(surface)?;
+    let environ = fs::read(format!("/proc/{}/environ", creds.pid)).ok()?;
+    // environ is null-byte separated KEY=VALUE pairs.
+    environ.split(|&b| b == 0).find_map(|entry| {
+        let entry = std::str::from_utf8(entry).ok()?;
+        let (key, value) = entry.split_once('=')?;
+        (key == "XDG_ACTIVATION_TOKEN").then(|| value.to_owned())
     })
 }

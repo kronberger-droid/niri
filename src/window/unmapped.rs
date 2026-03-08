@@ -12,6 +12,7 @@ pub struct Unmapped {
     pub state: InitialConfigureState,
     /// Activation token, if one was used on this unmapped window.
     pub activation_token_data: Option<XdgActivationTokenData>,
+    pub spawn_rule: Option<niri_ipc::SpawnRule>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -87,6 +88,7 @@ impl Unmapped {
                 wants_maximized: false,
             },
             activation_token_data: None,
+            spawn_rule: None,
         }
     }
 
