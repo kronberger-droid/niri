@@ -378,6 +378,22 @@ async fn process(ctx: &ClientCtx, request: Request) -> Reply {
             let color = result.map_err(|_| String::from("error getting picked color"))?;
             Response::PickedColor(color)
         }
+        Request::CursorPosition => {
+            let (tx, rx) = async_channel::bounded(1);
+            ctx.event_loop.insert_idle(move |state| {
+                let pos = state
+                    .niri
+                    .seat
+                    .get_pointer()
+                    .map(|ptr| ptr.current_location());
+                let _ = tx.send_blocking(pos);
+            });
+            let result = rx.recv().await;
+            let pos = result.map_err(|_| String::from("error getting cursor position"))?;
+            let cursor_pos =
+                pos.map(|p| niri_ipc::CursorPosition { x: p.x, y: p.y });
+            Response::CursorPosition(cursor_pos)
+        }
         Request::Action(action) => {
             validate_action(&action)?;
 
