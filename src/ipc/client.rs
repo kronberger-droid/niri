@@ -50,6 +50,7 @@ pub fn handle_msg(mut msg: Msg, json: bool) -> anyhow::Result<()> {
         Msg::FocusedOutput => Request::FocusedOutput,
         Msg::PickWindow => Request::PickWindow,
         Msg::PickColor => Request::PickColor,
+        Msg::CursorPosition => Request::CursorPosition,
         Msg::Action { action } => Request::Action(action.clone()),
         Msg::Output { output, action } => Request::Output {
             output: output.clone(),
@@ -329,6 +330,23 @@ pub fn handle_msg(mut msg: Msg, json: bool) -> anyhow::Result<()> {
                 println!("Hex: #{r:02x}{g:02x}{b:02x}");
             } else {
                 println!("No color was picked.");
+            }
+        }
+        Msg::CursorPosition => {
+            let Response::CursorPosition(pos) = response else {
+                bail!("unexpected response: expected CursorPosition, got {response:?}");
+            };
+
+            if json {
+                let pos = serde_json::to_string(&pos).context("error formatting response")?;
+                println!("{pos}");
+                return Ok(());
+            }
+
+            if let Some(p) = pos {
+                println!("Cursor position: {}, {}", p.x, p.y);
+            } else {
+                println!("No pointer device available.");
             }
         }
         Msg::Action { .. } => {
