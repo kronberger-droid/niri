@@ -2,7 +2,7 @@ use std::any::Any;
 use std::cmp::min;
 use std::collections::hash_map::Entry;
 use std::collections::HashSet;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use calloop::timer::{TimeoutAction, Timer};
 use input::event::gesture::GestureEventCoordinates as _;
@@ -698,22 +698,12 @@ impl State {
                 self.niri.debug_toggle_damage();
             }
             Action::Spawn(command, rule) => {
-                let (token, _) = self.niri.activation_state.create_external_token(None);
-                if let Some(rule) = rule {
-                    self.niri
-                        .pending_spawn_rules
-                        .insert(token.as_str().to_owned(), (Instant::now(), rule));
-                }
-                spawn(command, Some(token.clone()));
+                let token = self.niri.create_spawn_token(rule);
+                spawn(command, Some(token));
             }
             Action::SpawnSh(command, rule) => {
-                let (token, _) = self.niri.activation_state.create_external_token(None);
-                if let Some(rule) = rule {
-                    self.niri
-                        .pending_spawn_rules
-                        .insert(token.as_str().to_owned(), (Instant::now(), rule));
-                }
-                spawn_sh(command, Some(token.clone()));
+                let token = self.niri.create_spawn_token(rule);
+                spawn_sh(command, Some(token));
             }
             Action::DoScreenTransition(delay_ms) => {
                 self.backend.with_primary_renderer(|renderer| {

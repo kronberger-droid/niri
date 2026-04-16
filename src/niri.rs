@@ -108,7 +108,7 @@ use smithay::wayland::tablet_manager::TabletManagerState;
 use smithay::wayland::text_input::TextInputManagerState;
 use smithay::wayland::viewporter::ViewporterState;
 use smithay::wayland::virtual_keyboard::VirtualKeyboardManagerState;
-use smithay::wayland::xdg_activation::XdgActivationState;
+use smithay::wayland::xdg_activation::{XdgActivationState, XdgActivationToken};
 use smithay::wayland::xdg_foreign::XdgForeignState;
 
 #[cfg(feature = "dbus")]
@@ -2627,6 +2627,19 @@ impl Niri {
         niri.reset_pointer_inactivity_timer();
 
         niri
+    }
+
+    /// Create an activation token for spawning, optionally registering a one-shot spawn rule.
+    pub fn create_spawn_token(
+        &mut self,
+        rule: Option<niri_ipc::SpawnRule>,
+    ) -> XdgActivationToken {
+        let (token, _) = self.activation_state.create_external_token(None);
+        if let Some(rule) = rule {
+            self.pending_spawn_rules
+                .insert(token.as_str().to_owned(), (Instant::now(), rule));
+        }
+        token.clone()
     }
 
     pub fn insert_client(&mut self, client: NewClient) {
