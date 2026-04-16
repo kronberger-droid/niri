@@ -384,37 +384,53 @@ impl ResolvedWindowRules {
 
     /// Overlay a one-shot spawn rule, overriding any matching fields.
     pub fn apply_spawn_rule(&mut self, rule: &niri_ipc::SpawnRule) {
-        if let Some(v) = rule.open_floating {
+        // Destructure so that adding a field to SpawnRule without handling it
+        // here causes a compile error.
+        let niri_ipc::SpawnRule {
+            open_floating,
+            open_maximized,
+            open_maximized_to_edges,
+            open_fullscreen,
+            open_focused,
+            ref open_on_output,
+            ref open_on_workspace,
+            default_column_display,
+            ref default_column_width,
+            ref default_window_height,
+            ref default_floating_position,
+        } = *rule;
+
+        if let Some(v) = open_floating {
             self.open_floating = Some(v);
         }
-        if let Some(v) = rule.open_maximized {
+        if let Some(v) = open_maximized {
             self.open_maximized = Some(v);
         }
-        if let Some(v) = rule.open_maximized_to_edges {
+        if let Some(v) = open_maximized_to_edges {
             self.open_maximized_to_edges = Some(v);
         }
-        if let Some(v) = rule.open_fullscreen {
+        if let Some(v) = open_fullscreen {
             self.open_fullscreen = Some(v);
         }
-        if let Some(v) = rule.open_focused {
+        if let Some(v) = open_focused {
             self.open_focused = Some(v);
         }
-        if let Some(ref v) = rule.open_on_output {
+        if let Some(ref v) = open_on_output {
             self.open_on_output = Some(v.clone());
         }
-        if let Some(ref v) = rule.open_on_workspace {
+        if let Some(ref v) = open_on_workspace {
             self.open_on_workspace = Some(v.clone());
         }
-        if let Some(v) = rule.default_column_display {
+        if let Some(v) = default_column_display {
             self.default_column_display = Some(v);
         }
-        if let Some(ref v) = rule.default_column_width {
+        if let Some(ref v) = default_column_width {
             self.default_width = Some(v.map(PresetSize::from));
         }
-        if let Some(ref v) = rule.default_window_height {
+        if let Some(ref v) = default_window_height {
             self.default_height = Some(v.map(PresetSize::from));
         }
-        if let Some(ref v) = rule.default_floating_position {
+        if let Some(ref v) = default_floating_position {
             self.default_floating_position = Some(FloatingPosition::from(*v));
         }
     }
