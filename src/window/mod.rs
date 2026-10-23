@@ -58,6 +58,9 @@ pub struct ResolvedWindowRules {
     /// Workspace to open this window on.
     pub open_on_workspace: Option<String>,
 
+    /// Workspace to open this window on, by id. Only ever set by a spawn rule.
+    pub open_on_workspace_id: Option<u64>,
+
     /// Whether the window should open full-width.
     pub open_maximized: Option<bool>,
 
@@ -407,6 +410,7 @@ impl ResolvedWindowRules {
             open_focused,
             ref open_on_output,
             ref open_on_workspace,
+            open_on_workspace_id,
             default_column_display,
             ref default_column_width,
             ref default_window_height,
@@ -433,6 +437,9 @@ impl ResolvedWindowRules {
         }
         if let Some(ref v) = open_on_workspace {
             self.open_on_workspace = Some(v.clone());
+        }
+        if let Some(v) = open_on_workspace_id {
+            self.open_on_workspace_id = Some(v);
         }
         if let Some(v) = default_column_display {
             self.default_column_display = Some(v);

@@ -1222,6 +1222,9 @@ pub struct SpawnRule {
     pub open_on_output: Option<String>,
     /// Open the window on a specific workspace.
     pub open_on_workspace: Option<String>,
+    /// Open the window on the workspace with this id. Takes precedence over
+    /// `open_on_workspace`, and unlike it does not need the workspace to be named.
+    pub open_on_workspace_id: Option<u64>,
     /// Default column display mode for the window.
     pub default_column_display: Option<ColumnDisplay>,
     /// Default column width. Outer `None` means unset, inner `None` resets to no default.

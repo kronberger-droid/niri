@@ -1838,6 +1838,10 @@ impl<W: LayoutElement> Layout<W> {
         })
     }
 
+    pub fn monitor_for_workspace_id(&self, id: WorkspaceId) -> Option<&Monitor<W>> {
+        self.monitors().find(|monitor| monitor.has_ws(id))
+    }
+
     pub fn outputs(&self) -> impl Iterator<Item = &Output> + '_ {
         self.monitors().map(|mon| &mon.output)
     }

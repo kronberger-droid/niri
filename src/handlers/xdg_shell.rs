@@ -40,6 +40,7 @@ use tracing::field::Empty;
 use crate::input::move_grab::MoveGrab;
 use crate::input::resize_grab::ResizeGrab;
 use crate::input::{AnyStartData, DOUBLE_CLICK_TIME};
+use crate::layout::workspace::WorkspaceId;
 use crate::layout::ActivateWindow;
 use crate::niri::{CastTarget, PopupGrabState, State};
 use crate::utils::transaction::Transaction;
@@ -588,13 +589,18 @@ impl XdgShellHandler for State {
                     is_full_width,
                     output,
                     workspace_name,
+                    workspace_id,
                     is_pending_maximized,
                 } => {
                     // Figure out the monitor following a similar logic to initial configure.
                     // FIXME: deduplicate.
-                    let mon = workspace_name
-                        .as_deref()
-                        .and_then(|name| self.niri.layout.monitor_for_workspace(name))
+                    let mon = workspace_id
+                        .and_then(|id| self.niri.layout.monitor_for_workspace_id(id))
+                        .or_else(|| {
+                            workspace_name
+                                .as_deref()
+                                .and_then(|name| self.niri.layout.monitor_for_workspace(name))
+                        })
                         .map(|mon| (mon, false));
 
                     let mon = mon.or_else(|| {
@@ -627,9 +633,13 @@ impl XdgShellHandler for State {
                         .map(|(mon, _)| mon.output().clone());
                     let mon = mon.map(|(mon, _)| mon);
 
-                    let ws = workspace_name
-                        .as_deref()
-                        .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
+                    let ws = workspace_id
+                        .map(|id| self.niri.layout.find_workspace_by_id(id).map(|(_, ws)| ws))
+                        .or_else(|| {
+                            workspace_name
+                                .as_deref()
+                                .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
+                        })
                         .unwrap_or_else(|| {
                             mon.map(|mon| mon.active_workspace_ref())
                                 .or_else(|| self.niri.layout.active_workspace())
@@ -799,13 +809,18 @@ impl XdgShellHandler for State {
                     is_full_width,
                     output,
                     workspace_name,
+                    workspace_id,
                     is_pending_maximized,
                 } => {
                     // Figure out the monitor following a similar logic to initial configure.
                     // FIXME: deduplicate.
-                    let mon = workspace_name
-                        .as_deref()
-                        .and_then(|name| self.niri.layout.monitor_for_workspace(name))
+                    let mon = workspace_id
+                        .and_then(|id| self.niri.layout.monitor_for_workspace_id(id))
+                        .or_else(|| {
+                            workspace_name
+                                .as_deref()
+                                .and_then(|name| self.niri.layout.monitor_for_workspace(name))
+                        })
                         .map(|mon| (mon, false));
 
                     let mon = mon.or_else(|| {
@@ -838,9 +853,13 @@ impl XdgShellHandler for State {
                         .map(|(mon, _)| mon.output().clone());
                     let mon = mon.map(|(mon, _)| mon);
 
-                    let ws = workspace_name
-                        .as_deref()
-                        .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
+                    let ws = workspace_id
+                        .map(|id| self.niri.layout.find_workspace_by_id(id).map(|(_, ws)| ws))
+                        .or_else(|| {
+                            workspace_name
+                                .as_deref()
+                                .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
+                        })
                         .unwrap_or_else(|| {
                             mon.map(|mon| mon.active_workspace_ref())
                                 .or_else(|| self.niri.layout.active_workspace())
@@ -1120,10 +1139,15 @@ impl State {
         };
 
         // Pick the target monitor. First, check if we had a workspace set in the window rules.
-        let mon = rules
-            .open_on_workspace
-            .as_deref()
-            .and_then(|name| self.niri.layout.monitor_for_workspace(name));
+        let open_on_workspace_id = rules.open_on_workspace_id.map(WorkspaceId::specific);
+        let mon = open_on_workspace_id
+            .and_then(|id| self.niri.layout.monitor_for_workspace_id(id))
+            .or_else(|| {
+                rules
+                    .open_on_workspace
+                    .as_deref()
+                    .and_then(|name| self.niri.layout.monitor_for_workspace(name))
+            });
 
         // If not, check if we had an output set in the window rules.
         let mon = mon.or_else(|| {
@@ -1181,10 +1205,15 @@ impl State {
         let is_floating = rules.compute_open_floating(toplevel);
 
         // Tell the surface the preferred size and bounds for its likely output.
-        let ws = rules
-            .open_on_workspace
-            .as_deref()
-            .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
+        let ws = open_on_workspace_id
+            .and_then(|id| self.niri.layout.find_workspace_by_id(id))
+            .map(|(_, ws)| Some(ws))
+            .or_else(|| {
+                rules
+                    .open_on_workspace
+                    .as_deref()
+                    .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
+            })
             .unwrap_or_else(|| {
                 mon.map(|mon| mon.active_workspace_ref())
                     .or_else(|| self.niri.layout.active_workspace())
@@ -1243,6 +1272,9 @@ impl State {
             is_full_width,
             output,
             workspace_name: ws.and_then(|w| w.name().cloned()),
+            workspace_id: ws
+                .map(|w| w.id())
+                .filter(|id| Some(*id) == open_on_workspace_id),
             is_pending_maximized,
         };
 

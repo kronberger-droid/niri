@@ -253,6 +253,7 @@ impl From<&WindowRule> for niri_ipc::SpawnRule {
             open_focused: rule.open_focused,
             open_on_output: rule.open_on_output.clone(),
             open_on_workspace: rule.open_on_workspace.clone(),
+            open_on_workspace_id: None,
             default_column_display: rule.default_column_display,
             default_column_width: rule
                 .default_column_width
@@ -277,10 +278,27 @@ impl From<&WindowRule> for niri_ipc::SpawnRule {
 /// ```text
 /// open-floating true; default-floating-position x=100 y=100
 /// ```
+///
+/// On top of the window rule children, `open-on-workspace-id <id>` is accepted. It is
+/// taken out before parsing since a workspace id only means something at runtime, so
+/// it has no place in config window rules.
 pub fn parse_spawn_rule(rule_str: &str) -> miette::Result<niri_ipc::SpawnRule> {
+    let mut open_on_workspace_id = None;
+    let mut children = Vec::new();
+    for line in rule_str.split([';', '\n']) {
+        match line.trim().strip_prefix("open-on-workspace-id") {
+            Some(id) => {
+                let id = id.trim().parse::<u64>().map_err(|e| {
+                    miette::miette!("invalid open-on-workspace-id {:?}: {e}", id.trim())
+                })?;
+                open_on_workspace_id = Some(id);
+            }
+            None => children.push(line),
+        }
+    }
+
     // Wrap the rule string as children of a window-rule node.
-    // Semicolons are valid KDL node terminators, but newlines also work.
-    let kdl = format!("window-rule {{\n{}\n}}", rule_str.replace(';', "\n"));
+    let kdl = format!("window-rule {{\n{}\n}}", children.join("\n"));
 
     // Parse as a single-element document containing one WindowRule.
     #[derive(knuffel::Decode)]
@@ -291,7 +309,10 @@ pub fn parse_spawn_rule(rule_str: &str) -> miette::Result<niri_ipc::SpawnRule> {
 
     let wrapper: Wrapper = knuffel::parse("--rule", &kdl).map_err(|e| miette::miette!("{e}"))?;
 
-    Ok(niri_ipc::SpawnRule::from(&wrapper.window_rule))
+    Ok(niri_ipc::SpawnRule {
+        open_on_workspace_id,
+        ..niri_ipc::SpawnRule::from(&wrapper.window_rule)
+    })
 }
 
 impl<S: knuffel::traits::ErrorSpan> knuffel::DecodeScalar<S> for VrrRule {
@@ -325,5 +346,24 @@ impl<S: knuffel::traits::ErrorSpan> knuffel::DecodeScalar<S> for VrrRule {
                 rust_type: stringify!(VrrRule),
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_spawn_rule_workspace_id() {
+        let rule = parse_spawn_rule("open-floating true; open-on-workspace-id 7").unwrap();
+        assert_eq!(rule.open_on_workspace_id, Some(7));
+        assert_eq!(rule.open_floating, Some(true));
+
+        assert!(parse_spawn_rule("open-on-workspace-id nope").is_err());
+
+        // The name-based key must not be taken for the id one.
+        let rule = parse_spawn_rule(r#"open-on-workspace "dev""#).unwrap();
+        assert_eq!(rule.open_on_workspace.as_deref(), Some("dev"));
+        assert_eq!(rule.open_on_workspace_id, None);
     }
 }
