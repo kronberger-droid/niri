@@ -391,8 +391,7 @@ async fn process(ctx: &ClientCtx, request: Request) -> Reply {
             });
             let result = rx.recv().await;
             let pos = result.map_err(|_| String::from("error getting cursor position"))?;
-            let cursor_pos =
-                pos.map(|p| niri_ipc::CursorPosition { x: p.x, y: p.y });
+            let cursor_pos = pos.map(|p| niri_ipc::CursorPosition { x: p.x, y: p.y });
             Response::CursorPosition(cursor_pos)
         }
         Request::Action(action) => {

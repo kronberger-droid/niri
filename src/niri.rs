@@ -2932,10 +2932,7 @@ impl Niri {
     }
 
     /// Create an activation token for spawning, optionally registering a one-shot spawn rule.
-    pub fn create_spawn_token(
-        &mut self,
-        rule: Option<niri_ipc::SpawnRule>,
-    ) -> XdgActivationToken {
+    pub fn create_spawn_token(&mut self, rule: Option<niri_ipc::SpawnRule>) -> XdgActivationToken {
         let (token, _) = self.activation_state.create_external_token(None);
         if let Some(rule) = rule {
             self.pending_spawn_rules
